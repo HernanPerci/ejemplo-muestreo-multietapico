@@ -1,0 +1,149 @@
+---
+title: "CONSTRUYA 4 CONGLOMERADOS EN LA POBLACIÓN DONDE CADA UNO TIENE 5 ELEMENTOS"
+author: "Hernan Perci Nuñez Palomino - Oliver Polin Espejo - Sussan Villaorduña"
+date: "Ultima edicion `r format(Sys.time(), '%d %B %Y')`"
+output: 
+  word_document:
+    df_print: kable 
+    toc: yes
+    fig_width: 5
+    fig_height: 5
+    fig_caption: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+```
+
+
+# construccion de conglomerados y elementos de la poblacion
+
+```{r, warning = FALSE}
+
+# numero de conglomerados
+N <- 4
+# numero de elementos por conglomerado (tamaños iguales)
+M <- 5
+# tabla
+conglomerado <- rep(1:N, M)
+set.seed(123)
+valores <- rnorm(n = N * M, mean = 0, sd = 1)
+data <- tibble(conglomerado, valores) %>%
+  nest(-conglomerado)
+(unnest(data, -conglomerado))
+```
+
+* La media poblacional por elementos es `r mean(valores)`.
+* La varianza poblacional es `r var(valores) * ((N * M) - 1) / (N * M)`
+
+# muestra de 3 conglomerados en primera etapa
+
+```{r}
+
+n <- 3
+set.seed(123)
+muestra_1_etapa <- data %>%
+  filter(conglomerado %in% sample(1:N, size = n))
+(unnest(muestra_1_etapa, -conglomerado))
+```
+
+
+# muestra de 3 elementos de cada conglomerado en segunda etapa
+
+```{r}
+
+m <- 3
+set.seed(123)
+muestra_2_etapa <- muestra_1_etapa %>%
+  mutate(mi = map(data, ~sample_n(tbl = ., size = m))) %>%
+  select(conglomerado, mi)
+(unnest(muestra_2_etapa, -conglomerado))
+```
+
+
+# estimar el total poplacional, media por conglomerados y media por elementos
+
+## estimaciones en segunda etapa
+
+```{r}
+
+(estimaciones_2_etapa <- muestra_2_etapa %>%
+  mutate(promedio = map(mi, ~ mean(x = unlist(x = .)))) %>%
+  select(conglomerado, promedio) %>%
+  unnest(promedio) %>%
+  mutate(total = M * promedio))
+```
+
+
+## estimaciones en primera etapa
+
+```{r}
+
+(estimaciones_1_etapa <- tibble(media_conglomerado = c(sum(estimaciones_2_etapa$total) / n), 
+                               total = c(N * sum(estimaciones_2_etapa$total) / n),
+                               media_elemento = c(sum(estimaciones_2_etapa$total) / (n * M))))
+
+```
+
+
+# varianza de cada estimador
+
+```{r}
+
+# cuasivarianza poblacional entre conglomerados
+cuasi_entre <- data %>%
+  mutate(Yi = map(data, ~ sum(.))) %>%
+  unnest(Yi) %>%
+  select(Yi) %>%
+  mutate(S2bi = ((Yi - mean(Yi))^2) / (N - 1)) %>%
+  summarise(S2b = sum(S2bi))
+# cuasivarianza poblacional dentro de conglomerados
+cuasi_dentro <- data %>%
+  mutate(S2wi = map(data, ~ var(x = .))) %>%
+  unnest(S2wi) %>%
+  select(S2wi)
+# varianzas
+varianza_total_estimado <- ((N^2) * ((1 / n) - (1 / N)) * cuasi_entre$S2b) +
+  ((N / n) * (M^2) * ((1 / m) - (1 / M)) * sum(cuasi_dentro$S2wi))
+varianza_media_conglomerado_estimado <- varianza_total_estimado / (N^2)
+varianza_media_elemento_estimado <- varianza_media_conglomerado_estimado / (M^2)
+
+```
+
+
+* La varianza del total estimado es `r varianza_total_estimado`.
+* La varianza de la media por conglomerado estimado es `r varianza_media_conglomerado_estimado`.
+* La varianza de la media por elemento estimado es `r varianza_media_elemento_estimado`.
+
+# estimacion de la varianza de cada estimador
+
+```{r}
+
+# cuasivarianza muestral entre conglomerados
+cuasi_muestral_entre <- muestra_1_etapa %>%
+  mutate(yi = map(data, ~ sum(.))) %>%
+  unnest(yi) %>%
+  select(yi) %>%
+  mutate(s2bi = ((yi - mean(yi))^2) / (n - 1)) %>%
+  summarise(s2b = sum(s2bi))
+# cuasivarianza muestral dentro de conglomerados
+cuasi_muestral_dentro <- muestra_1_etapa %>%
+  mutate(s2wi = map(data, ~ var(x = .))) %>%
+  unnest(s2wi) %>%
+  select(s2wi)
+# varianzas estimadas
+estimada_varianza_total_estimado <- ((N^2) * ((1 / n) - (1 / N)) * cuasi_muestral_entre$s2b) +
+    ((N / n) * (M^2) * ((1 / m) - (1 / M)) * sum(cuasi_muestral_dentro$s2wi))
+estimada_varianza_media_conglomerado_estimado <- estimada_varianza_total_estimado / (N^2)
+estimada_varianza_media_elemento_estimado <- estimada_varianza_media_conglomerado_estimado / (M^2)
+
+```
+
+
+* La estimada de la varianza del total estimado es `r estimada_varianza_total_estimado`.
+* La estimada de la varianza de la media por conglomerado estimado es `r estimada_varianza_media_conglomerado_estimado`.
+* La estimada de la varianza de la media por elemento estimado es `r estimada_varianza_media_elemento_estimado`.
