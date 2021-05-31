@@ -1,6 +1,6 @@
 ---
 title: "CONSTRUYA 4 CONGLOMERADOS EN LA POBLACIÓN DONDE CADA UNO TIENE 5 ELEMENTOS"
-author: "Hernan Perci Nuñez Palomino - Oliver Polin Espejo - Sussan Villaorduña"
+author: "Hernan Perci Nuñez Palomino"
 date: "Ultima edicion `r format(Sys.time(), '%d %B %Y')`"
 output: 
   word_document:
